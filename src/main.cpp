@@ -15,12 +15,34 @@ int tempInt;
 int tempSet = 24;
 int tempSetMod;
 bool heatState = 1;
+int lastButtonState = LOW;
+const int debounceDelay = 50;
 
 // INICIALIZACION
 DHT dht(dhtPin, DHT11);
 LiquidCrystal lcd(rs, en, d4, d5, d6, d7);
 
-void setup() {
+//Funciones
+//Funcion debounce adaptada de https://www.arduino.cc/en/Tutorial/BuiltInExamples/Debounce
+int debounce (int reading) {
+  unsigned long lastDebounceTime;
+  if (reading != lastButtonState) {
+    lastDebounceTime = millis();
+  }
+  if ((millis() - lastDebounceTime) > debounceDelay) {
+    if (reading == HIGH) {
+      lastButtonState = reading;
+      return HIGH;
+    }
+    else {
+      lastButtonState = reading;
+      return LOW;
+    }
+  }
+}
+
+
+void setup() {                  //TODO: comunicación puerto serie.
   dht.begin();
   lcd.begin(16, 2);
   pinMode(buttonUp, INPUT);
@@ -42,8 +64,8 @@ void loop() {
   lcd.setCursor(10, 0);
   lcd.print(tempInt);
 
-  int tempUp = digitalRead(buttonUp);
-  int tempDown = digitalRead(buttonDown);       // TODO: Debounce function
+  int tempUp = debounce(digitalRead(buttonUp));
+  int tempDown = debounce(digitalRead(buttonDown));
   if (tempUp == HIGH) {
     tempSet++;
     if (tempSet >= tempInt) { heatState = 1; } 
@@ -90,3 +112,4 @@ void loop() {
   }
   delay(2000);
 }
+
