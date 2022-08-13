@@ -13,38 +13,13 @@ const int buttonUp=2, buttonDown=3;               //Botones de config.
 // VARIABLES
 int tempInt;
 int tempSet = 24;
-int tempSetMod;
+int tempMod;
 bool heatState = 1;
 int lastButtonState = LOW;
 
 // INICIALIZACION
 DHT dht(dhtPin, DHT11);
 LiquidCrystal lcd(rs, en, d4, d5, d6, d7);
-
-//Funciones
-/*Funcion debounce adaptada de https://www.arduino.cc/en/Tutorial/BuiltInExamples/Debounce
-  TODO: Pensar forma de que la variable lastButtonState este dentro de la función.*/
-int debounce (int reading) {
-  const int debounceDelay = 50;
-  int buttonState;
-  unsigned long lastDebounceTime;
-  
-  if (reading != lastButtonState) {
-    lastDebounceTime = millis();
-  }
-  if ((millis() - lastDebounceTime) > debounceDelay) {
-    if (reading != buttonState) {
-      buttonState = reading;
-      if (buttonState == HIGH) {
-        lastButtonState = buttonState;
-        return buttonState;
-      }
-      lastButtonState = buttonState;
-      return buttonState;
-    }
-  }
-}
-
 
 void setup() {                  //TODO: comunicación puerto serie.
   dht.begin();
@@ -71,46 +46,37 @@ void loop() {
   int tempUp = debounce(digitalRead(buttonUp));
   int tempDown = debounce(digitalRead(buttonDown));
   
-  if (tempUp == HIGH) {
-    tempSet++;
-    if (tempSet >= tempInt) { heatState = 1; } 
-    if (tempSet < tempInt) { heatState = 0; }
+  bool tempUpdate = 0;
+  if (tempUp != tempDown){
+    if (tempUp == HIGH) {tempSet++;}
+    else {tempSet--;}
+    tempUpdate = 1;
   }
-  if (tempDown == HIGH) { 
-    tempSet--;
-    if (tempSet >= tempInt) { heatState = 1; } 
-    if (tempSet < tempInt) { heatState = 0; } 
-  } 
-  lcd.setCursor(10, 1);
-  lcd.print(tempSet);
-
-  switch (heatState) // se elige si hay que calentar/enfriar
-  {
-  case 0: //enfría por tanto se pone el umbral por debajo de lo seteado
-    tempSetMod = tempSet - 2;
-    break;
-  case 1: //calienta por tanto se pone el umbral por arriba de lo seteado
-    tempSetMod = tempSet + 2;
-    break;
-  default:
-    break;
+  
+  if (tempUpdate) {
+    if (tempSet >= tempInt) {heatState = 1;}
+    else {heatState = 0;}
+    lcd.setCursor(10, 1);
+    lcd.print(tempSet);
+    if (heatState) {tempMod = 2;}
+    else {tempMod = -2;}
   }
 
   //control de los reles
-  if (tempSetMod > tempInt) {       //caso 1: la temp de umbral es mayor y se activa el rele con la resistencia
+  if ((tempSet + tempMod) > tempInt) {        //caso 1: la temp es mayor y se activa el rele con la resistencia
     digitalWrite(relayCool, LOW);    
     digitalWrite(relayHeat, HIGH);
   }
-  else if (tempSetMod < tempInt) {  //caso 2: la temp de umbral es menor y se activa el rele con la celda
+  else if ((tempSet + tempMod) < tempInt) {   //caso 2: la temp es menor y se activa el rele con la celda
     digitalWrite(relayCool, HIGH);
     digitalWrite(relayHeat, LOW);
   }
-  else {                            //caso 3: la temp de umbral se consiguio y se desactivan ambos reles
+  else {                                      //caso 3: la temp se consiguio y se desactivan ambos reles
     digitalWrite(relayCool, LOW);
     digitalWrite(relayHeat, LOW);
-    while (tempSet > tempInt || tempSet < tempInt) {    //se inicia un bucle hasta que la que se pierda la dif de la temp de umbral
-      tempInt = dht.readTemperature();                  //se sigue mostrando la temp int
-      lcd.setCursor(10, 0);                             //TODO: romper ciclo cuando se pulsa un boton
+    while (tempSet > tempInt || tempSet < tempInt) {    
+      tempInt = dht.readTemperature();                  
+      lcd.setCursor(10, 0);                   //TODO: romper ciclo cuando se pulsa un boton
       lcd.print(tempInt);
       delay(6000);
     }
@@ -118,3 +84,26 @@ void loop() {
   delay(2000);
 }
 
+//Funciones
+/*Funcion debounce adaptada de https://www.arduino.cc/en/Tutorial/BuiltInExamples/Debounce
+  TODO: Pensar forma de que la variable lastButtonState este dentro de la función.*/
+int debounce (int reading) {
+  const int debounceDelay = 50;
+  int buttonState;
+  unsigned long lastDebounceTime;
+  
+  if (reading != lastButtonState) {
+    lastDebounceTime = millis();
+  }
+  if ((millis() - lastDebounceTime) > debounceDelay) {
+    if (reading != buttonState) {
+      buttonState = reading;
+      if (buttonState == HIGH) {
+        lastButtonState = buttonState;
+        return buttonState;
+      }
+      lastButtonState = buttonState;
+      return buttonState;
+    }
+  }
+}
