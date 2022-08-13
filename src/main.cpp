@@ -16,27 +16,31 @@ int tempSet = 24;
 int tempSetMod;
 bool heatState = 1;
 int lastButtonState = LOW;
-const int debounceDelay = 50;
 
 // INICIALIZACION
 DHT dht(dhtPin, DHT11);
 LiquidCrystal lcd(rs, en, d4, d5, d6, d7);
 
 //Funciones
-//Funcion debounce adaptada de https://www.arduino.cc/en/Tutorial/BuiltInExamples/Debounce
+/*Funcion debounce adaptada de https://www.arduino.cc/en/Tutorial/BuiltInExamples/Debounce
+  TODO: Pensar forma de que la variable lastButtonState este dentro de la función.*/
 int debounce (int reading) {
+  const int debounceDelay = 50;
+  int buttonState;
   unsigned long lastDebounceTime;
+  
   if (reading != lastButtonState) {
     lastDebounceTime = millis();
   }
   if ((millis() - lastDebounceTime) > debounceDelay) {
-    if (reading == HIGH) {
-      lastButtonState = reading;
-      return HIGH;
-    }
-    else {
-      lastButtonState = reading;
-      return LOW;
+    if (reading != buttonState) {
+      buttonState = reading;
+      if (buttonState == HIGH) {
+        lastButtonState = buttonState;
+        return buttonState;
+      }
+      lastButtonState = buttonState;
+      return buttonState;
     }
   }
 }
@@ -66,6 +70,7 @@ void loop() {
 
   int tempUp = debounce(digitalRead(buttonUp));
   int tempDown = debounce(digitalRead(buttonDown));
+  
   if (tempUp == HIGH) {
     tempSet++;
     if (tempSet >= tempInt) { heatState = 1; } 
