@@ -39,20 +39,19 @@ void setup() {                  //TODO: comunicación puerto serie.
 
 void loop() {
 
-  tempInt = dht.readTemperature();
-  lcd.setCursor(10, 0);
-  lcd.print(tempInt);
+  tempInt = readAndPrint();
 
   int tempUp = debounce(digitalRead(buttonUp));
   int tempDown = debounce(digitalRead(buttonDown));
   
   bool tempUpdate = 0;
-  if (tempUp != tempDown){
+  //TODO: Transformar en funcion para simplificar el codigo
+  if (tempUp != tempDown) {
     if (tempUp == HIGH) {tempSet++;}
     else {tempSet--;}
     tempUpdate = 1;
   }
-  
+  //TODO: Transformar en fucion para simplificar el codigo
   if (tempUpdate) {
     if (tempSet >= tempInt) {heatState = 1;}
     else {heatState = 0;}
@@ -61,7 +60,6 @@ void loop() {
     if (heatState) {tempMod = 2;}
     else {tempMod = -2;}
   }
-
   //control de los reles
   if ((tempSet + tempMod) > tempInt) {        //caso 1: la temp es mayor y se activa el rele con la resistencia
     digitalWrite(relayCool, LOW);    
@@ -75,13 +73,25 @@ void loop() {
     digitalWrite(relayCool, LOW);
     digitalWrite(relayHeat, LOW);
     while (tempSet > tempInt || tempSet < tempInt) {    
-      tempInt = dht.readTemperature();                  
-      lcd.setCursor(10, 0);                   //TODO: romper ciclo cuando se pulsa un boton
-      lcd.print(tempInt);
-      delay(6000);
+      tempInt = readAndPrint();               
+      if (debounce(digitalRead(buttonUp)) == HIGH || debounce(digitalRead(buttonDown)) == HIGH) {
+        if (tempUp != tempDown) {
+          if (tempUp == HIGH) {tempSet++;}
+          else {tempSet--;}
+          tempUpdate = 1;
+        }
+        if (tempUpdate) {
+          if (tempSet >= tempInt) {heatState = 1;}
+          else {heatState = 0;}
+          lcd.setCursor(10, 1);
+          lcd.print(tempSet);
+          if (heatState) {tempMod = 2;}
+          else {tempMod = -2;}
+          return;
+        }
+      }
     }
   }
-  delay(2000);
 }
 
 //Funciones
@@ -106,4 +116,11 @@ int debounce (int reading) {
       return buttonState;
     }
   }
+}
+
+int readAndPrint(){
+  int read = dht.readTemperature();
+  lcd.setCursor(10, 0);
+  lcd.print(read);
+  return read;
 }
