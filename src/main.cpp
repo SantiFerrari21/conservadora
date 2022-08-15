@@ -52,7 +52,7 @@ int readAndPrint(DHT sensor, LiquidCrystal display){
   return read;
 }
 
-bool tempUdate (LiquidCrystal display, int temp1, int temp2) {
+bool tempUpdate (LiquidCrystal display, int temp1, int temp2) {
   display.setCursor(10, 1);
   display.print(temp1);
   if (temp1 >= temp2) {return 1;}
@@ -93,7 +93,7 @@ void loop() {
   }
 
   if (tempChange) {
-    heatState = tempUdate(lcd, tempSet, tempInt);
+    heatState = tempUpdate(lcd, tempSet, tempInt);
     if (heatState) {tempMod = 2;}
     else {tempMod = -2;}
   }
@@ -121,7 +121,7 @@ void loop() {
           else {tempSet--;}
           tempChange = 1;
           if (tempChange) {
-            heatState = tempUdate(lcd, tempSet, tempInt);
+            heatState = tempUpdate(lcd, tempSet, tempInt);
             if (heatState) {tempMod = 2;}
             else {tempMod = -2;}
           }
