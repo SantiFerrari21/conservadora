@@ -52,6 +52,14 @@ int readAndPrint(DHT sensor, LiquidCrystal display){
   return read;
 }
 
+bool tempUdate (LiquidCrystal display, int temp1, int temp2) {
+  display.setCursor(10, 1);
+  display.print(temp1);
+  if (temp1 >= temp2) {return 1;}
+  else {return 0;}
+}
+
+
 
 void setup() {                  //TODO: comunicación puerto serie.
   dht.begin();
@@ -68,30 +76,29 @@ void setup() {                  //TODO: comunicación puerto serie.
 }
 
 //TODO: Crear funciones para simplificar el codigo del loop
-
 void loop() {
+
+  bool tempChange = 0;
 
   tempInt = readAndPrint(dht, lcd);
 
   int tempUp = debounce(digitalRead(buttonUp));
   int tempDown = debounce(digitalRead(buttonDown));
-  
-  bool tempUpdate = 0;
+
   //TODO: Transformar en funcion para simplificar el codigo
   if (tempUp != tempDown) {
     if (tempUp == HIGH) {tempSet++;}
     else {tempSet--;}
-    tempUpdate = 1;
+    tempChange = 1;
   }
-  //TODO: Transformar en fucion para simplificar el codigo
-  if (tempUpdate) {
-    if (tempSet >= tempInt) {heatState = 1;}
-    else {heatState = 0;}
-    lcd.setCursor(10, 1);
-    lcd.print(tempSet);
+
+  if (tempChange) {
+    heatState = tempUdate(lcd, tempSet, tempInt);
     if (heatState) {tempMod = 2;}
     else {tempMod = -2;}
   }
+  
+
   //control de los reles
   if ((tempSet + tempMod) > tempInt) {        //caso 1: la temp es mayor y se activa el rele con la resistencia
     digitalWrite(relayCool, LOW);    
@@ -105,21 +112,19 @@ void loop() {
     digitalWrite(relayCool, LOW);
     digitalWrite(relayHeat, LOW);
     while (tempSet > tempInt || tempSet < tempInt) {    
-      tempInt = readAndPrint(dht, lcd);               
+      tempInt = readAndPrint(dht, lcd);
+      tempUp = debounce(digitalRead(buttonUp));
+      tempDown = debounce(digitalRead(buttonDown));
       if (debounce(digitalRead(buttonUp)) == HIGH || debounce(digitalRead(buttonDown)) == HIGH) {
         if (tempUp != tempDown) {
           if (tempUp == HIGH) {tempSet++;}
           else {tempSet--;}
-          tempUpdate = 1;
-        }
-        if (tempUpdate) {
-          if (tempSet >= tempInt) {heatState = 1;}
-          else {heatState = 0;}
-          lcd.setCursor(10, 1);
-          lcd.print(tempSet);
-          if (heatState) {tempMod = 2;}
-          else {tempMod = -2;}
-          return;
+          tempChange = 1;
+          if (tempChange) {
+            heatState = tempUdate(lcd, tempSet, tempInt);
+            if (heatState) {tempMod = 2;}
+            else {tempMod = -2;}
+          }
         }
       }
     }
