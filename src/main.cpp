@@ -26,7 +26,7 @@ LiquidCrystal lcd(rs, en, d4, d5, d6, d7);
   TODO: Pensar forma de que la variable lastButtonState este dentro de la función.*/
 int debounce (int reading) {
   const int debounceDelay = 50;
-  int buttonState;
+  int buttonState = LOW;
   unsigned long lastDebounceTime;
   
   if (reading != lastButtonState) {
@@ -43,6 +43,7 @@ int debounce (int reading) {
       return buttonState;
     }
   }
+  return buttonState;
 }
 
 int readAndPrint(DHT sensor, LiquidCrystal display){
@@ -75,7 +76,8 @@ void setup() {                  //TODO: comunicación puerto serie.
   digitalWrite(relayHeat, LOW);
 }
 
-//TODO: Crear funciones para simplificar el codigo del loop
+// TODO: Comentar codigo
+
 void loop() {
 
   bool tempChange = 0;
@@ -85,8 +87,8 @@ void loop() {
   int tempUp = debounce(digitalRead(buttonUp));
   int tempDown = debounce(digitalRead(buttonDown));
 
-  //TODO: Transformar en funcion para simplificar el codigo
   if (tempUp != tempDown) {
+    reset:
     if (tempUp == HIGH) {tempSet++;}
     else {tempSet--;}
     tempChange = 1;
@@ -97,35 +99,24 @@ void loop() {
     if (heatState) {tempMod = 2;}
     else {tempMod = -2;}
   }
-  
-
   //control de los reles
-  if ((tempSet + tempMod) > tempInt) {        //caso 1: la temp es mayor y se activa el rele con la resistencia
+  if ((tempSet + tempMod) > tempInt) {
     digitalWrite(relayCool, LOW);    
     digitalWrite(relayHeat, HIGH);
   }
-  else if ((tempSet + tempMod) < tempInt) {   //caso 2: la temp es menor y se activa el rele con la celda
+  else if ((tempSet + tempMod) < tempInt) {
     digitalWrite(relayCool, HIGH);
     digitalWrite(relayHeat, LOW);
   }
-  else {                                      //caso 3: la temp se consiguio y se desactivan ambos reles
+  else {
     digitalWrite(relayCool, LOW);
     digitalWrite(relayHeat, LOW);
     while (tempSet > tempInt || tempSet < tempInt) {    
       tempInt = readAndPrint(dht, lcd);
       tempUp = debounce(digitalRead(buttonUp));
       tempDown = debounce(digitalRead(buttonDown));
-      if (debounce(digitalRead(buttonUp)) == HIGH || debounce(digitalRead(buttonDown)) == HIGH) {
-        if (tempUp != tempDown) {
-          if (tempUp == HIGH) {tempSet++;}
-          else {tempSet--;}
-          tempChange = 1;
-          if (tempChange) {
-            heatState = tempUpdate(lcd, tempSet, tempInt);
-            if (heatState) {tempMod = 2;}
-            else {tempMod = -2;}
-          }
-        }
+      if (tempUp != tempDown) {
+        goto reset;
       }
     }
   }
