@@ -21,6 +21,38 @@ int lastButtonState = LOW;
 DHT dht(dhtPin, DHT11);
 LiquidCrystal lcd(rs, en, d4, d5, d6, d7);
 
+//Funciones
+/*Funcion debounce adaptada de https://www.arduino.cc/en/Tutorial/BuiltInExamples/Debounce
+  TODO: Pensar forma de que la variable lastButtonState este dentro de la función.*/
+int debounce (int reading) {
+  const int debounceDelay = 50;
+  int buttonState;
+  unsigned long lastDebounceTime;
+  
+  if (reading != lastButtonState) {
+    lastDebounceTime = millis();
+  }
+  if ((millis() - lastDebounceTime) > debounceDelay) {
+    if (reading != buttonState) {
+      buttonState = reading;
+      if (buttonState == HIGH) {
+        lastButtonState = buttonState;
+        return buttonState;
+      }
+      lastButtonState = buttonState;
+      return buttonState;
+    }
+  }
+}
+
+int readAndPrint(DHT sensor, LiquidCrystal display){
+  int read = sensor.readTemperature();
+  display.setCursor(10, 0);
+  display.print(read);
+  return read;
+}
+
+
 void setup() {                  //TODO: comunicación puerto serie.
   dht.begin();
   lcd.begin(16, 2);
@@ -28,9 +60,9 @@ void setup() {                  //TODO: comunicación puerto serie.
   pinMode(buttonDown, INPUT);
   pinMode(relayCool, OUTPUT);
   pinMode(relayHeat, OUTPUT);
-  lcd.print('TempInt: ');
+  lcd.print("TempInt: ");
   lcd.setCursor(0,1);
-  lcd.print('TempSet: ');
+  lcd.print("TempSet: ");
   digitalWrite(relayCool, LOW);
   digitalWrite(relayHeat, LOW);
 }
@@ -39,7 +71,7 @@ void setup() {                  //TODO: comunicación puerto serie.
 
 void loop() {
 
-  tempInt = readAndPrint();
+  tempInt = readAndPrint(dht, lcd);
 
   int tempUp = debounce(digitalRead(buttonUp));
   int tempDown = debounce(digitalRead(buttonDown));
@@ -73,7 +105,7 @@ void loop() {
     digitalWrite(relayCool, LOW);
     digitalWrite(relayHeat, LOW);
     while (tempSet > tempInt || tempSet < tempInt) {    
-      tempInt = readAndPrint();               
+      tempInt = readAndPrint(dht, lcd);               
       if (debounce(digitalRead(buttonUp)) == HIGH || debounce(digitalRead(buttonDown)) == HIGH) {
         if (tempUp != tempDown) {
           if (tempUp == HIGH) {tempSet++;}
@@ -92,35 +124,4 @@ void loop() {
       }
     }
   }
-}
-
-//Funciones
-/*Funcion debounce adaptada de https://www.arduino.cc/en/Tutorial/BuiltInExamples/Debounce
-  TODO: Pensar forma de que la variable lastButtonState este dentro de la función.*/
-int debounce (int reading) {
-  const int debounceDelay = 50;
-  int buttonState;
-  unsigned long lastDebounceTime;
-  
-  if (reading != lastButtonState) {
-    lastDebounceTime = millis();
-  }
-  if ((millis() - lastDebounceTime) > debounceDelay) {
-    if (reading != buttonState) {
-      buttonState = reading;
-      if (buttonState == HIGH) {
-        lastButtonState = buttonState;
-        return buttonState;
-      }
-      lastButtonState = buttonState;
-      return buttonState;
-    }
-  }
-}
-
-int readAndPrint(){
-  int read = dht.readTemperature();
-  lcd.setCursor(10, 0);
-  lcd.print(read);
-  return read;
 }
