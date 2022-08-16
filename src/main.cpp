@@ -4,6 +4,8 @@
 #include <DHT_U.h>
 #include <LiquidCrystal.h>
 
+// TODO: Comentar codigo
+
 // CONEXIONES NECESARIAS
 const int dhtPin=8;                               //Pin de dato del sensor
 const int rs=12, en=11, d4=4, d5=5, d6=6, d7=7;   //Pines del display
@@ -15,34 +17,33 @@ int tempInt;
 int tempSet = 24;
 int tempMod;
 bool heatState = 1;
-int lastButtonState = LOW;
+int lastBStateUp = LOW;
+int* ptrLastBSUp = &lastBStateUp;
+int lastBStateDown = LOW;
+int* ptrLastBSDown = &lastBStateDown;
 
 // INICIALIZACION
 DHT dht(dhtPin, DHT11);
 LiquidCrystal lcd(rs, en, d4, d5, d6, d7);
 
 //Funciones
-/*Funcion debounce adaptada de https://www.arduino.cc/en/Tutorial/BuiltInExamples/Debounce
-  TODO: Pensar forma de que la variable lastButtonState este dentro de la función.*/
-int debounce (int reading) {
-  const int debounceDelay = 50;
-  int buttonState = LOW;
+/*Funcion debounce adaptada de https://www.arduino.cc/en/Tutorial/BuiltInExamples/Debounce*/
+int debounce (int button, int* ptrLastBState) {
   unsigned long lastDebounceTime;
-  
-  if (reading != lastButtonState) {
+  unsigned long debounceDelay = 50;
+  int buttonState;
+
+  int reading = digitalRead(button);
+
+  if (reading != *ptrLastBState) {
     lastDebounceTime = millis();
   }
   if ((millis() - lastDebounceTime) > debounceDelay) {
-    if (reading != buttonState) {
-      buttonState = reading;
-      if (buttonState == HIGH) {
-        lastButtonState = buttonState;
-        return buttonState;
-      }
-      lastButtonState = buttonState;
-      return buttonState;
-    }
+    if (reading != buttonState) {buttonState = reading;}
   }
+
+  *ptrLastBState = buttonState;
+  
   return buttonState;
 }
 
@@ -60,8 +61,6 @@ bool tempUpdate (LiquidCrystal display, int temp1, int temp2) {
   else {return 0;}
 }
 
-
-
 void setup() {                  //TODO: comunicación puerto serie.
   dht.begin();
   lcd.begin(16, 2);
@@ -76,16 +75,14 @@ void setup() {                  //TODO: comunicación puerto serie.
   digitalWrite(relayHeat, LOW);
 }
 
-// TODO: Comentar codigo
-
 void loop() {
 
   bool tempChange = 0;
 
   tempInt = readAndPrint(dht, lcd);
 
-  int tempUp = debounce(digitalRead(buttonUp));
-  int tempDown = debounce(digitalRead(buttonDown));
+  int tempUp = debounce(buttonUp, ptrLastBSUp);
+  int tempDown = debounce(buttonDown, ptrLastBSDown);
 
   if (tempUp != tempDown) {
     reset:
@@ -99,7 +96,7 @@ void loop() {
     if (heatState) {tempMod = 2;}
     else {tempMod = -2;}
   }
-  //control de los reles
+
   if ((tempSet + tempMod) > tempInt) {
     digitalWrite(relayCool, LOW);    
     digitalWrite(relayHeat, HIGH);
@@ -113,8 +110,8 @@ void loop() {
     digitalWrite(relayHeat, LOW);
     while (tempSet > tempInt || tempSet < tempInt) {    
       tempInt = readAndPrint(dht, lcd);
-      tempUp = debounce(digitalRead(buttonUp));
-      tempDown = debounce(digitalRead(buttonDown));
+      tempUp = debounce(buttonUp, ptrLastBSUp);
+      tempDown = debounce(buttonDown, ptrLastBSDown);
       if (tempUp != tempDown) {
         goto reset;
       }
