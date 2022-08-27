@@ -151,7 +151,8 @@ void setup() {
   cli();
   TCCR1A = 0;
   TCCR1B = 0;
-  TCCR1B |= B00000010;
+  TCCR1B |= B00000100;
+  TIMSK1 |= B00000010; 
   OCR1A = 62500;
   sei();
   Serial.println("READY");
