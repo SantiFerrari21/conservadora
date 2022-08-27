@@ -29,8 +29,10 @@ int tempInt;
 int* ptrTempInt = &tempInt;
 int tempSet = 24;
 int* ptrTempSet = &tempSet;
-int tempMod = 2;
+int tempMod;
 int* ptrMod = &tempMod;
+
+const int MOD = 1;
 
 
 // INICIALIZACION
@@ -73,24 +75,35 @@ void keypad(int bState0, int bState1, int* setTemp, bool* sBFlag) {
   }
 }
 
-void checker(int intTemp, int setTemp, int* mod, int* state, bool* sBFlag) {                  //TODO: pensar en como desacoplar mas esta funcion
-  if ((*mod > 0 && intTemp <= setTemp) || (*mod < 0 && intTemp >= setTemp)) {*sBFlag = 0;}    
-  
-  if (!*sBFlag) {
-    *mod = (setTemp >= intTemp) ? *mod : -*mod;
-    int modTemp = setTemp + *mod;
-    if ((*mod > 0 && intTemp >= modTemp) || (*mod < 0 && intTemp <= modTemp)) {*state = 0;}
-    else if (modTemp >= intTemp) {*state = 1;}
-    else {*state = 2;}
+void modState(int intTemp, int setTemp, int* mod) {
+  if (intTemp <= setTemp) {*mod = MOD;}
+  else {*mod = -MOD;} 
+}
+
+void standByCheck(int intTemp, int setTemp, int mod, bool* standBy) {
+  int modTemp = setTemp + mod;
+  if (mod > 0) {
+    *standBy = ((intTemp > setTemp) && (intTemp >= modTemp)) ? 1 : 0;
+  }
+  else {
+    *standBy = ((intTemp < setTemp) && (intTemp <= modTemp)) ? 1 : 0;
   }
 }
 
-void operation(int actuator0, int actuator1, int* state, bool* sBFlag) { 
+void stateCheck(int intTemp, int setTemp, int mod, bool standBy, int* state) {
+  if (!standBy) {
+    int modTemp = setTemp + mod;
+    if (modTemp >= intTemp) {*state = 1;}
+    else {*state = 2;}
+  }
+  else {*state = 0;}
+}
+
+void operation(int actuator0, int actuator1, int* state) { 
   switch (*state) {
     case 0:
       actuator0 = LOW;
       actuator1 = LOW;
-      *sBFlag = 1;
       break;
     case 1:
       actuator0 = HIGH;
@@ -163,8 +176,10 @@ void loop() {
   int buttonStateUp = debounce(buttonUp, ptrLastBSUp);
   int buttonStateDown = debounce(buttonDown, ptrLastBSDown);
   keypad(buttonStateUp, buttonStateDown, ptrTempSet, ptrStandBy);
-  checker(tempInt, tempSet, ptrMod, ptrRState, ptrStandBy);
-  operation(relayHeat, relayCool, ptrRState, ptrStandBy);
+  modState(tempInt, tempSet, ptrMod);
+  standByCheck(tempInt, tempSet, tempMod, ptrStandBy);
+  stateCheck(tempInt, tempSet, tempMod, standByFlag, ptrRState);
+  operation(relayHeat, relayCool, ptrRState);
   display(tempInt, tempSet);
   serialInfo();
 }
