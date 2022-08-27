@@ -18,6 +18,8 @@ bool standByFlag = 0;
 bool* ptrStandBy = &standByFlag;
 int relayState = 0;
 int* ptrRState = &relayState;
+bool serialFlag = 0;
+bool* ptrSerialFlag = &serialFlag;
 
 // VARIABLES
 
@@ -67,11 +69,10 @@ void measure(bool* cFlag, int* intTemp) {       //TODO: implementar chekeo de Na
   }
 }
 
-void keypad(int bState0, int bState1, int* setTemp, bool* sBFlag) {
+void keypad(int bState0, int bState1, int* setTemp) {  //TODO: limitar rango de temperatura seteado
   if (bState0 != bState1){
     if (bState0) {*setTemp += 1;}
     else {*setTemp -= 1;}
-    *sBFlag = 0;
   }
 }
 
@@ -124,29 +125,32 @@ void display(int intTemp, int setTemp) {
   lcd.print(setTemp);
 }
 
-void serialInfo(bool temp = 1, bool relays = 1) {                 //TODO: implementar delay entre mensajes
-  Serial.println("----------------------------------------");
-  if (temp) {
-    Serial.println("---------------TEMP  INFO---------------");
-    Serial.print("Temp. Int: ");
-    Serial.println(tempInt);
-    Serial.print("Temp. Set: ");
-    Serial.println(tempSet);
-    Serial.print("Modifier: ");
-    Serial.println(tempMod);
-  }
-  if (relays) {
-    Serial.println("---------------RELAY INFO---------------");
-    Serial.print("RelayHeat: ");
-    Serial.println(bitRead(PORTD, relayHeat));
-    Serial.print("RelayCool: ");
-    Serial.println(bitRead(PORTD, relayCool));
-    Serial.print("RelayState:");
-    Serial.println(relayState);
-    Serial.print("RelayStandBy:");
-    Serial.println(standByFlag);
+void serialInfo(bool* flag, bool temp = 1, bool relays = 1) {                 //TODO: implementar delay entre mensajes
+  if (*flag) {
+    Serial.println("----------------------------------------");
+    if (temp) {
+      Serial.println("---------------TEMP  INFO---------------");
+      Serial.print("Temp. Int: ");
+      Serial.println(tempInt);
+      Serial.print("Temp. Set: ");
+      Serial.println(tempSet);
+      Serial.print("Modifier: ");
+      Serial.println(tempMod);
+    }
+    if (relays) {
+      Serial.println("---------------RELAY INFO---------------");
+      Serial.print("RelayHeat: ");
+      Serial.println(bitRead(PORTD, relayHeat));
+      Serial.print("RelayCool: ");
+      Serial.println(bitRead(PORTD, relayCool));
+      Serial.print("RelayState:");
+      Serial.println(relayState);
+      Serial.print("RelayStandBy:");
+      Serial.println(standByFlag);
+    } 
+    Serial.println("----------------------------------------");
+    *flag = 0;
   } 
-  Serial.println("----------------------------------------"); 
 }
 
 void setup() {
@@ -175,16 +179,17 @@ void loop() {
   measure(ptrClock, ptrTempInt);
   int buttonStateUp = debounce(buttonUp, ptrLastBSUp);
   int buttonStateDown = debounce(buttonDown, ptrLastBSDown);
-  keypad(buttonStateUp, buttonStateDown, ptrTempSet, ptrStandBy);
+  keypad(buttonStateUp, buttonStateDown, ptrTempSet);
   modState(tempInt, tempSet, ptrMod);
   standByCheck(tempInt, tempSet, tempMod, ptrStandBy);
   stateCheck(tempInt, tempSet, tempMod, standByFlag, ptrRState);
   operation(relayHeat, relayCool, ptrRState);
   display(tempInt, tempSet);
-  serialInfo();
+  serialInfo(ptrSerialFlag);
 }
 
 ISR(TIMER1_COMPA_vect) {
   TCNT1 = 0;
-  *ptrClock = 1;
+  clockFlag = 1;
+  serialFlag = 1;
 }
