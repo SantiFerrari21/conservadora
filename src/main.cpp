@@ -103,16 +103,16 @@ void stateCheck(int intTemp, int setTemp, int mod, bool standBy, int* state) {
 void operation(int actuator0, int actuator1, int* state) { 
   switch (*state) {
     case 0:
-      actuator0 = LOW;
-      actuator1 = LOW;
+      digitalWrite(actuator0, LOW);
+      digitalWrite(actuator1, LOW);
       break;
     case 1:
-      actuator0 = HIGH;
-      actuator1 = LOW;
+      digitalWrite(actuator0, HIGH);
+      digitalWrite(actuator1, LOW);
       break;
     case 2:
-      actuator0 = LOW;
-      actuator1 = HIGH;
+      digitalWrite(actuator0, LOW);
+      digitalWrite(actuator1, HIGH);
     default:
       break;
   }
