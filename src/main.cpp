@@ -27,8 +27,7 @@ int lastBStateUp = LOW;
 int* ptrLastBSUp = &lastBStateUp;
 int lastBStateDown = LOW;
 int* ptrLastBSDown = &lastBStateDown;
-int tempInt;
-int* ptrTempInt = &tempInt;
+float tempInt;
 int tempSet = 24;
 int* ptrTempSet = &tempSet;
 int tempMod;
@@ -62,17 +61,20 @@ int debounce (int button, int* ptrLastBState) {
   return buttonState;
 }
 
-void measure(bool* cFlag, int* intTemp) {       //TODO: implementar chekeo de NaN y funcion para promediar
+float read(bool* cFlag) {       //TODO: implementar chekeo de NaN y funcion para promediar
   if (*cFlag) {
-    *intTemp = dht.readTemperature();
     *cFlag = 0;
+    int reading = (dht.readTemperature() * 100);
+    return reading;
   }
 }
 
 void keypad(int bState0, int bState1, int* setTemp) {  //TODO: limitar rango de temperatura seteado
   if (bState0 != bState1){
-    if (bState0) {*setTemp += 1;}
-    else {*setTemp -= 1;}
+    if (bState0 && *setTemp != 30) {*setTemp += 1;}
+    else {
+      if (*setTemp != 5) {*setTemp -= 1;}
+    }
   }
 }
 
@@ -176,7 +178,7 @@ void setup() {
 }
 
 void loop() {
-  measure(ptrClock, ptrTempInt);
+  tempInt = read(ptrClock);
   int buttonStateUp = debounce(buttonUp, ptrLastBSUp);
   int buttonStateDown = debounce(buttonDown, ptrLastBSDown);
   keypad(buttonStateUp, buttonStateDown, ptrTempSet);
