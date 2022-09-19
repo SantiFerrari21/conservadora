@@ -7,10 +7,10 @@
 // TODO: Comentar codigo
 
 // CONEXIONES NECESARIAS
-const int dhtPin=8;                               //Pin de dato del sensor
-const int rs=12, en=11, d4=4, d5=5, d6=6, d7=7;   //Pines del display
-const int relayCool=9, relayHeat=10;              //Pines de los reles (realyCool = Celda peltier | relayHeat = Resistencia)
-const int buttonUp=2, buttonDown=3;               //Botones de config.
+const int dhtPin=4;                                //Pin de dato del sensor
+const int rs=7, en=8, d4=9, d5=10, d6=11, d7=12;   //Pines del display
+const int relayCool=5, relayHeat=6;                //Pines de los reles (realyCool = Celda peltier | relayHeat = Resistencia)
+const int buttonUp=2, buttonDown=3;                //Botones de config.
 
 bool clockFlag = 0;
 bool* ptrClock = &clockFlag;
@@ -27,9 +27,8 @@ int lastBStateUp = LOW;
 int* ptrLastBSUp = &lastBStateUp;
 int lastBStateDown = LOW;
 int* ptrLastBSDown = &lastBStateDown;
-float tempInt;
-int tempSet = 24;
-int* ptrTempSet = &tempSet;
+int tempInt;
+byte tempSet = 24;
 int tempMod;
 int* ptrMod = &tempMod;
 
@@ -42,7 +41,7 @@ LiquidCrystal lcd(rs, en, d4, d5, d6, d7);
 
 //FUNCIONES TODO: Renombrar las funciones para que sean intuitivas
 /*Funcion debounce adaptada de https://www.arduino.cc/en/Tutorial/BuiltInExamples/Debounce*/
-int debounce (int button, int* ptrLastBState) {
+bool debounce (int button, int* ptrLastBState) {
   unsigned long lastDebounceTime;
   unsigned long debounceDelay = 50;
   int buttonState;
@@ -61,7 +60,7 @@ int debounce (int button, int* ptrLastBState) {
   return buttonState;
 }
 
-float read(bool* cFlag) {       //TODO: implementar chekeo de NaN y funcion para promediar
+int read(bool* cFlag) {       //TODO: implementar chekeo de NaN y funcion para promediar
   if (*cFlag) {
     *cFlag = 0;
     int reading = (dht.readTemperature() * 100);
@@ -69,13 +68,10 @@ float read(bool* cFlag) {       //TODO: implementar chekeo de NaN y funcion para
   }
 }
 
-void keypad(int bState0, int bState1, int* setTemp) {  //TODO: limitar rango de temperatura seteado
-  if (bState0 != bState1){
-    if (bState0 && *setTemp != 30) {*setTemp += 1;}
-    else {
-      if (*setTemp != 5) {*setTemp -= 1;}
-    }
-  }
+byte userTemp(bool bState, byte userValue) {
+    if (bState && userValue < 30) {userValue += 1;}
+    else if (!bState && userValue > 5) {userValue -= 1;}
+    return userValue;
 }
 
 void modState(int intTemp, int setTemp, int* mod) {
@@ -178,16 +174,6 @@ void setup() {
 }
 
 void loop() {
-  tempInt = read(ptrClock);
-  int buttonStateUp = debounce(buttonUp, ptrLastBSUp);
-  int buttonStateDown = debounce(buttonDown, ptrLastBSDown);
-  keypad(buttonStateUp, buttonStateDown, ptrTempSet);
-  modState(tempInt, tempSet, ptrMod);
-  standByCheck(tempInt, tempSet, tempMod, ptrStandBy);
-  stateCheck(tempInt, tempSet, tempMod, standByFlag, ptrRState);
-  operation(relayHeat, relayCool, ptrRState);
-  display(tempInt, tempSet);
-  serialInfo(ptrSerialFlag);
 }
 
 ISR(TIMER1_COMPA_vect) {
