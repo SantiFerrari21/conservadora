@@ -14,6 +14,7 @@ const int buttonUp=2, buttonDown=3;                //Botones de config.
 /*-------------------Flags-----------------------*/
 
 bool heatState = 1;
+bool stopState = 1;
 byte operationState = 0;
 
 /*-------------------Botonera---------------------*/
@@ -56,41 +57,18 @@ byte userTempUpdate(bool bStateUp, bool bStateDown, byte userValue) {
   return userValue;
 }
 
-bool stopState(bool heatMode, int readTemp, byte userValue, byte modifier, bool lastStopState) {
+//Función que establece el estado del equipo
+bool stopStateUpdate(int readTemp, byte userValue, byte modifier, bool heatMode, bool lastStopState) {
   bool stop = 0;
 
   if (!lastStopState) {
-    
-    if (heatMode) {
-      if (readTemp > userValue) {
-        if (readTemp >= userValue + modifier) {
-          stop = 1;
-        }
-      }
-    }
-    else {
-      if (readTemp < userValue) {
-        if (readTemp <= userValue - modifier) {
-          stop = 1;
-        }
-      }
-    }
-
+    if (heatMode) {stop = (readTemp > userValue && readTemp >= userValue + modifier);}
+    else {stop = (readTemp < userValue && readTemp <= userValue - modifier);}
   }
-
   else {
-    if (heatMode) {
-      if (readTemp < userValue) {
-        stop = 0;
-      }
+    if (heatMode) {stop = (readTemp >= userValue);}
+    else {stop = (readTemp <= userValue);}
     }
-    else {
-      if (readTemp > userValue) {
-        stop = 0;
-      }
-    }
-
-  }
 
   return stop;
 }
@@ -125,5 +103,6 @@ void loop() {
     userTemp = userTempUpdate(lastBStateUp, lastBStateDown, userTemp);
     heatState = (tempRead <= userTemp);
   }
+  stopState = stopStateUpdate(tempRead, userTemp, 1, heatState, stopState);
   operation(relayHeat, relayCool, operationState);
 }
