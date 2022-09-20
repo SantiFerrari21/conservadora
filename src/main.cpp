@@ -73,6 +73,10 @@ bool stopStateUpdate(int readTemp, byte userValue, byte modifier, bool heatMode,
   return stop;
 }
 
+byte operationStateUpdate(bool stopFlag, bool heatFlag) {
+  return stopFlag ? 0 : heatFlag ? 1 : 2; 
+}
+
 void operation(int actuator0, int actuator1, int state) { 
   switch (state) {
     case 0:
@@ -104,5 +108,6 @@ void loop() {
     heatState = (tempRead <= userTemp);
   }
   stopState = stopStateUpdate(tempRead, userTemp, 1, heatState, stopState);
+  operationState = operationStateUpdate(stopState, heatState);
   operation(relayHeat, relayCool, operationState);
 }
