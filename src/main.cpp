@@ -9,10 +9,15 @@ const int dhtPin=4;                                //Pin de dato del sensor
 const int rs=7, en=8, d4=9, d5=10, d6=11, d7=12;   //Pines del display
 const int relayCool=5, relayHeat=6;                //Pines de los reles (realyCool = Celda peltier | relayHeat = Resistencia)
 const int buttonUp=2, buttonDown=3;                //Botones de config.
+// INICIALIZACION
+
+DHT dht(dhtPin, DHT11);
+LiquidCrystal lcd(rs, en, d4, d5, d6, d7);
 
 // VARIABLES
 /*-------------------Flags-----------------------*/
 
+bool clockFlag = 0;
 bool heatState = 1;
 bool stopState = 1;
 byte operationState = 0;
@@ -27,10 +32,9 @@ bool lastBStateDown = LOW;
 int tempRead;
 byte userTemp = 24;
 
-// INICIALIZACION
+unsigned int seconds = 0;
 
-DHT dht(dhtPin, DHT11);
-LiquidCrystal lcd(rs, en, d4, d5, d6, d7);
+
 
 //Funcion debounce adaptada de https://www.arduino.cc/en/Tutorial/BuiltInExamples/Debounce
 bool debounce(int buttonPin, bool lastButtonState) {
@@ -58,15 +62,15 @@ byte userTempUpdate(bool bStateUp, bool bStateDown, byte userValue) {
 }
 
 //Función que establece el estado del equipo
-bool stopStateUpdate(int readTemp, byte userValue, byte modifier, bool heatMode, bool lastStopState) {
+bool stopStateUpdate(int readTemp, byte userValue, byte modifier, bool heatFlag, bool lastStopState) {
   bool stop = 0;
 
   if (!lastStopState) {
-    if (heatMode) {stop = (readTemp > userValue && readTemp >= userValue + modifier);}
+    if (heatFlag) {stop = (readTemp > userValue && readTemp >= userValue + modifier);}
     else {stop = (readTemp < userValue && readTemp <= userValue - modifier);}
   }
   else {
-    if (heatMode) {stop = (readTemp >= userValue);}
+    if (heatFlag) {stop = (readTemp >= userValue);}
     else {stop = (readTemp <= userValue);}
     }
 
@@ -80,26 +84,65 @@ byte operationStateUpdate(bool stopFlag, bool heatFlag) {
 void operation(int actuator0, int actuator1, int state) { 
   switch (state) {
     case 0:
-      digitalWrite(actuator0, LOW);
-      digitalWrite(actuator1, LOW);
+      digitalWrite(actuator0, HIGH);
+      digitalWrite(actuator1, HIGH);
       break;
     case 1:
-      digitalWrite(actuator0, HIGH);
-      digitalWrite(actuator1, LOW);
-      break;
-    case 2:
       digitalWrite(actuator0, LOW);
       digitalWrite(actuator1, HIGH);
+      break;
+    case 2:
+      digitalWrite(actuator0, HIGH);
+      digitalWrite(actuator1, LOW);
     default:
       break;
   }
 }
 
+void display(int readTemp, byte userValue) {
+  lcd.clear();
+  lcd.print("TempInt: ");
+  lcd.print(readTemp);
+  lcd.setCursor(0,1);
+  lcd.print("TempSet: ");
+  lcd.print(userValue);
+}
+
+void serialInfo() {
+  Serial.print("operationState: ");
+  Serial.println(operationState);
+  Serial.print("stopState: ");
+  Serial.println(stopState);
+  Serial.print("heatState: ");
+  Serial.println(heatState);
+  
+}
+
 void setup() {
+  Serial.begin(9600);
   dht.begin();
+  lcd.begin(16,2);
+  pinMode(buttonUp, INPUT);
+  pinMode(buttonDown, INPUT);
+  pinMode(relayHeat, OUTPUT);
+  pinMode(relayCool, OUTPUT);
+  cli();
+  TCCR1A = 0;
+  TCCR1B = 0;
+  TCCR1B |= B00000100;
+  TIMSK1 |= B00000010; 
+  OCR1A = 62500;
+  sei();
+  Serial.println("READY");
 }
 
 void loop() {
+  if (clockFlag) {
+    seconds++;
+    if (seconds % 60 == 0) {serialInfo();}
+    if (seconds % 300 == 0) {seconds = 0;}
+    clockFlag = 0;
+  }
   tempRead = dht.readTemperature();
   lastBStateUp = debounce(buttonUp, lastBStateUp);
   lastBStateDown = debounce(buttonDown, lastBStateDown);
@@ -110,4 +153,10 @@ void loop() {
   stopState = stopStateUpdate(tempRead, userTemp, 1, heatState, stopState);
   operationState = operationStateUpdate(stopState, heatState);
   operation(relayHeat, relayCool, operationState);
+  display(tempRead, userTemp);
+}
+
+ISR(TIMER1_COMPA_vect) {
+  TCNT1 = 0;
+  clockFlag = 1;
 }
