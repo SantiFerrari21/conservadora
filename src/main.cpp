@@ -4,11 +4,15 @@
 #include <DHT_U.h>
 #include <LiquidCrystal.h>
 
+#define noOfButtons 2
+#define bounceDelay 20
+#define minButtonPress 3
+
 // CONEXIONES NECESARIAS
 const int dhtPin=4;                                //Pin de dato del sensor
 const int rs=7, en=8, d4=9, d5=10, d6=11, d7=12;   //Pines del display
 const int relayCool=5, relayHeat=6;                //Pines de los reles (realyCool = Celda peltier | relayHeat = Resistencia)
-const int buttonUp=2, buttonDown=3;                //Botones de config.
+const int buttonPins[] = {2,3};                //Botones de config.
 // INICIALIZACION
 
 DHT dht(dhtPin, DHT11);
@@ -24,52 +28,39 @@ byte operationState = 0;  //Estado de funcionamiento del equipo
 
 /*-------------------Botonera---------------------*/
 
-bool lastBStateUp = LOW;  //Ultimo estado de los botones.
-bool lastBStateDown = LOW;
-
-/*-------------------Temperatura-----------------------*/
-
+unsigned long previousMillis[noOfButtons];
+byte pressCount[noOfButtons];
 byte userTemp = 24; //seteamos un valor inicial de temperatura
 
 unsigned int seconds = 0; 
 
 
-
-/// @brief Función antirrebote de los botones adaptada de: https://www.arduino.cc/en/Tutorial/BuiltInExamples/Debounce
-/// @param buttonPin Pin del botón.
-/// @param lastButtonState Ultimo estado del botón.
-/// @return Estado del botón.
-bool debounce(int buttonPin, bool lastButtonState) {
-  unsigned long lastDebounceTime;
-  unsigned long debounceDelay = 50; //Delay para el efecto antirrebote
-  bool buttonState;
-  //Lectura del estado del botón
-  bool reading = digitalRead(buttonPin);
-  //Comparamos la lectura del estado del botón con el ultimo estado leido
-  if (reading != lastButtonState) {
-    //Si la lectura es distinta del ultimo estado, se guarda el momento en que se activo
-    lastDebounceTime = millis();
-  }
-  //Comparamos el delay con el tiempo transcurrido desde la ultima vez que el botón cambio de estado
-  if ((millis() - lastDebounceTime) > debounceDelay) {
-    //Si el tiempo transcurrido es mayor al delay entonces el estado del botón cambio de verdad.
-    if (reading != buttonState) {buttonState = reading;}
-  }
-
-  return buttonState;
-}
-
-/// @brief Actualiza la temperatura que setea el usuario.
-/// @param bStateUp Estado del pulsador que aumenta la temp.
-/// @param bStateDown Estado del pulsador que disminuye la temp.
-/// @param userValue Temperatura actual seteada por el usuario.
-/// @return Temperatura actualizada.
-byte userTempUpdate(bool bStateUp, bool bStateDown, byte userValue) {
+byte userTempUpdate(byte buttonNumber, byte userValue) {
   //Se asegura que el usuario no pueda ingresar valores superiores a ciertos limites.
-  if (bStateUp && userValue < 30) {userValue += 1;}
-  if (bStateDown && userValue > 5) {userValue -= 1;}
+  if (buttonNumber == 1 && userValue < 30) {userValue += 1;}
+  if (buttonNumber == 0 && userValue > 5) {userValue -= 1;}
   return userValue;
 }
+
+void debounce() {
+  byte i;
+  unsigned long currentMillis = millis();
+  for (i = 0; i < noOfButtons; ++i) {
+    if (digitalRead(buttonPins[i])) {
+      previousMillis[i] = currentMillis;
+      pressCount[i] = 0;
+    } else {
+      if (currentMillis - previousMillis[i] > bounceDelay) {
+        previousMillis[i] = currentMillis;
+        ++pressCount[i];
+        if (pressCount[i] == minButtonPress) {
+          userTemp = userTempUpdate(i, userTemp);
+        }
+      }
+    }
+  }
+}
+
 
 /// @brief Verifica si el equipo se encuentra en estado detenido.
 /// @param readTemp Temperatura leida por el sensor.
@@ -149,14 +140,18 @@ void serialInfo() {
   Serial.println(stopState);
   Serial.print("heatState: ");
   Serial.println(heatState);
+  Serial.print("userTemp:");
+  Serial.println(userTemp);
 }
 
 void setup() {
+  byte i;
   Serial.begin(9600);
   dht.begin();
   lcd.begin(16,2);
-  pinMode(buttonUp, INPUT);
-  pinMode(buttonDown, INPUT);
+  for (i = 0; i < noOfButtons; ++i) {
+    pinMode(buttonPins[i], INPUT_PULLUP);
+  }
   pinMode(relayHeat, OUTPUT);
   pinMode(relayCool, OUTPUT);
   //Activación de interrupción por timer
@@ -175,14 +170,9 @@ void setup() {
 void loop() {
   //Se lee la temperatura del sensor.
   int tempRead = dht.readTemperature();
-  //Se verifica el estado de los botones.
-  lastBStateUp = debounce(buttonUp, lastBStateUp);
-  lastBStateDown = debounce(buttonDown, lastBStateDown);
-  //Si se pulsa solo un botón, entoces se actualiza la temperatura seteada y el estado de calefacción
-  if (lastBStateUp != lastBStateDown) {
-    userTemp = userTempUpdate(lastBStateUp, lastBStateDown, userTemp);
-    heatState = (tempRead <= userTemp);
-  }
+  debounce();
+  heatState = (tempRead <= userTemp);
+
   //Se ejecutan las funciones pertinentes
   stopState = stopStateUpdate(tempRead, userTemp, 1, heatState, stopState);
   operationState = operationStateUpdate(stopState, heatState);
@@ -193,7 +183,7 @@ void loop() {
   if (clockFlag) {
     // Contamos los segundos, transcurrido 60segundos se envia información al puerto serie
     seconds++;
-    if (seconds % 60 == 0) {serialInfo();}
+    if (seconds % 10 == 0) {serialInfo();}
     // TODO: Se puede implementar más funciones para calcular el promedio de mediciones y otras cosas.
     if (seconds % 300 == 0) {seconds = 0;}
     clockFlag = 0;
