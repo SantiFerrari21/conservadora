@@ -32,16 +32,12 @@ unsigned long previousMillis[noOfButtons];
 byte pressCount[noOfButtons];
 byte userTemp = 24; //seteamos un valor inicial de temperatura
 
+int tempRead;
+int tempSum;
+int tempAvg;
 unsigned int seconds = 0; 
 
-
-byte userTempUpdate(byte buttonNumber, byte userValue) {
-  //Se asegura que el usuario no pueda ingresar valores superiores a ciertos limites.
-  if (buttonNumber == 1 && userValue < 30) {userValue += 1;}
-  if (buttonNumber == 0 && userValue > 5) {userValue -= 1;}
-  return userValue;
-}
-
+byte userTempUpdate(byte buttonNumber, byte userValue);
 void debounce() {
   byte i;
   unsigned long currentMillis = millis();
@@ -61,6 +57,19 @@ void debounce() {
   }
 }
 
+byte userTempUpdate(byte buttonNumber, byte userValue) {
+  //Se asegura que el usuario no pueda ingresar valores superiores a ciertos limites.
+  if (buttonNumber == 1 && userValue < 30) {userValue += 1;}
+  if (buttonNumber == 0 && userValue > 5) {userValue -= 1;}
+  return userValue;
+}
+
+bool heatStateUpdate (int readTemp, byte userValue, bool lastHeatState, byte modifier) {
+  bool update;
+  if (lastHeatState) {update = (readTemp > userValue + (modifier * 2));}
+  else {update = (readTemp < userValue - (modifier * 2));}
+  return update ? !lastHeatState : lastHeatState;
+}
 
 /// @brief Verifica si el equipo se encuentra en estado detenido.
 /// @param readTemp Temperatura leida por el sensor.
@@ -122,14 +131,11 @@ void operation(int actuator0, int actuator1, int state) {
 /// @param readTemp Temperatura leida por el sensor.
 /// @param userValue Temperatura seteada por el usuario.
 void displayUpdate(int readTemp, byte userValue) {
-  // Primero se borra todo el contenido en el display y luego se escriben los datos correspondientes.
-  // Más información de la libreria LiquidCrystal en https://www.arduino.cc/reference/en/libraries/liquidcrystal/
-  lcd.clear();
-  lcd.print("TempInt: ");
+  lcd.setCursor(10,0);
   lcd.print(readTemp);
-  lcd.setCursor(0,1);
-  lcd.print("TempSet: ");
+  lcd.setCursor(10,1);
   lcd.print(userValue);
+  lcd.print(" ");
 }
 
 /// @brief Información que se envía al puerto serie.
@@ -140,20 +146,30 @@ void serialInfo() {
   Serial.println(stopState);
   Serial.print("heatState: ");
   Serial.println(heatState);
-  Serial.print("userTemp:");
+  Serial.print("userTemp: ");
   Serial.println(userTemp);
+  Serial.print("tempRead: ");
+  Serial.println(tempRead);
+  Serial.print("tempSum: ");
+  Serial.println(tempSum);
+  Serial.print("tempAvg: ");
+  Serial.println(tempAvg);
 }
 
 void setup() {
-  byte i;
   Serial.begin(9600);
   dht.begin();
   lcd.begin(16,2);
+  lcd.print("tempRead: ");
+  lcd.setCursor(0,1);
+  lcd.print("userTemp: ");
+  byte i;
   for (i = 0; i < noOfButtons; ++i) {
     pinMode(buttonPins[i], INPUT_PULLUP);
   }
   pinMode(relayHeat, OUTPUT);
   pinMode(relayCool, OUTPUT);
+  tempAvg = dht.readTemperature();
   //Activación de interrupción por timer
   //Para esto modificamos registros del micro
   //Más información en https://electronoobs.com/eng_arduino_tut140.php
@@ -169,23 +185,28 @@ void setup() {
 
 void loop() {
   //Se lee la temperatura del sensor.
-  int tempRead = dht.readTemperature();
+  tempRead = dht.readTemperature();
   debounce();
-  heatState = (tempRead <= userTemp);
-
-  //Se ejecutan las funciones pertinentes
-  stopState = stopStateUpdate(tempRead, userTemp, 1, heatState, stopState);
+  heatState = heatStateUpdate(tempAvg, userTemp, heatState, 1);
+  stopState = stopStateUpdate(tempAvg, userTemp, 1, heatState, stopState);
   operationState = operationStateUpdate(stopState, heatState);
   operation(relayHeat, relayCool, operationState);
-  displayUpdate(tempRead, userTemp);
-
+  displayUpdate(static_cast<int>(tempRead), userTemp);
   // Se verifica que la interrupción halla ocurrido
   if (clockFlag) {
     // Contamos los segundos, transcurrido 60segundos se envia información al puerto serie
     seconds++;
-    if (seconds % 10 == 0) {serialInfo();}
-    // TODO: Se puede implementar más funciones para calcular el promedio de mediciones y otras cosas.
-    if (seconds % 300 == 0) {seconds = 0;}
+    
+    if (!isnan(tempRead)) {tempSum += tempRead;}
+    else {seconds--;}
+
+    if (seconds % 5 == 0) {serialInfo();}
+    if (seconds % 60 == 0) {
+      tempAvg = round(tempSum / seconds);
+      tempSum = 0;
+      seconds = 0;
+      }
+    
     clockFlag = 0;
   }
 }
